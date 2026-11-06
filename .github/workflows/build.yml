@@ -1,0 +1,152 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # Used for the tag, the release, the artifact and zip names, and the version stamped into ProcScope.exe.
+  # Bump the major/minor here; the patch number is the workflow run number.
+  VERSION: v1.0.${{ github.run_number }}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.configuration }} | ${{ matrix.platform }}
+    # windows-2022 ships Visual Studio 2022 with the v143 toolset and MFC.
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [Debug, Release]
+        platform: [x64, x86]
+        include:
+          # The solution platform x86 builds the project's Win32 platform, which is the folder name under bin\.
+          - platform: x64
+            outdir: x64
+          - platform: x86
+            outdir: Win32
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: microsoft/setup-msbuild@v3
+
+      - name: Build
+        run: msbuild ProcScope.sln -m -nologo -verbosity:minimal -p:Configuration=${{ matrix.configuration }} -p:Platform=${{ matrix.platform }} "-p:ProcScopeVersion=$($env:VERSION.TrimStart('v'))"
+
+      # Launches the GUI on a real process, lets it load, then closes it. Catches debug assertions,
+      # startup crashes and shutdown hangs.
+      - name: Smoke test
+        shell: powershell
+        run: |
+          powershell -ExecutionPolicy Bypass -File Tests\SmokeTest.ps1 -Configuration ${{ matrix.configuration }} -Platform ${{ matrix.platform }}
+          if ($LASTEXITCODE -ne 0) { throw "SmokeTest.ps1 failed with exit code $LASTEXITCODE" }
+
+      # Corrupted and truncated files must not crash the readers, the dependency check or the API set parser.
+      - name: Fuzz the readers
+        shell: powershell
+        run: |
+          $files = @("$env:WINDIR\System32\version.dll")
+          # A 32-bit process has System32 redirected to SysWOW64, where this file doesn't exist.
+          if ('${{ matrix.platform }}' -eq 'x64') { $files += "$env:WINDIR\System32\apisetschema.dll" }
+          foreach ($file in $files) {
+            & "bin\${{ matrix.outdir }}\${{ matrix.configuration }}\ReaderTests.exe" fuzz $file 50
+            if ($LASTEXITCODE -ne 0) { throw "Fuzzing $file failed with exit code $LASTEXITCODE" }
+          }
+
+      - name: Upload binaries
+        if: matrix.configuration == 'Release'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ProcScope-${{ env.VERSION }}-${{ matrix.platform }}-${{ matrix.configuration }}
+          path: |
+            bin/${{ matrix.outdir }}/${{ matrix.configuration }}/ProcScope.exe
+            bin/${{ matrix.outdir }}/${{ matrix.configuration }}/ProcScope.pdb
+          if-no-files-found: error
+
+  # These compare against dumpbin and the real Windows loader, and build small faulty DLLs.
+  # They need both Release harnesses, so they run once rather than per configuration.
+  verify:
+    name: Verify against Windows
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: microsoft/setup-msbuild@v3
+
+      - name: Build
+        run: |
+          msbuild ProcScope.sln -m -nologo -verbosity:minimal -p:Configuration=Release -p:Platform=x64
+          msbuild ProcScope.sln -m -nologo -verbosity:minimal -p:Configuration=Release -p:Platform=x86
+
+      - name: Compare with PowerShell's view of processes
+        shell: powershell
+        run: |
+          powershell -ExecutionPolicy Bypass -File Tests\CompareProcesses.ps1
+          if ($LASTEXITCODE -ne 0) { throw "CompareProcesses.ps1 failed with exit code $LASTEXITCODE" }
+
+      - name: Compare with dumpbin
+        shell: powershell
+        run: |
+          powershell -ExecutionPolicy Bypass -File Tests\CompareWithDumpbin.ps1
+          if ($LASTEXITCODE -ne 0) { throw "CompareWithDumpbin.ps1 failed with exit code $LASTEXITCODE" }
+
+      - name: Compare with the Windows loader
+        shell: powershell
+        run: |
+          powershell -ExecutionPolicy Bypass -File Tests\CompareWithLoader.ps1
+          if ($LASTEXITCODE -ne 0) { throw "CompareWithLoader.ps1 failed with exit code $LASTEXITCODE" }
+
+      - name: Dependency fault fixtures
+        shell: powershell
+        run: |
+          powershell -ExecutionPolicy Bypass -File Tests\DependencyFixtures.ps1
+          if ($LASTEXITCODE -ne 0) { throw "DependencyFixtures.ps1 failed with exit code $LASTEXITCODE" }
+
+  release:
+    name: Release
+    # Every push to main whose builds and tests all pass gets its own tag and GitHub release.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [build, verify]
+    # Pinned rather than ubuntu-latest so the image doesn't change under us (the job only needs zip and gh).
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download binaries
+        uses: actions/download-artifact@v8
+        with:
+          pattern: ProcScope-*-Release
+          path: artifacts
+
+      # One zip per platform: ProcScope.exe (MFC linked statically, no redistributable needed) and its PDB.
+      - name: Zip binaries
+        run: |
+          mkdir release
+          for platform in x64 x86; do
+            (cd "artifacts/ProcScope-$VERSION-$platform-Release" && zip -r "$GITHUB_WORKSPACE/release/ProcScope-$VERSION-$platform.zip" .)
+          done
+
+      # gh creates the tag on the pushed commit and generates notes from the commits since the
+      # previous release.
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "$VERSION" release/*.zip
+          --repo "$GITHUB_REPOSITORY"
+          --target "$GITHUB_SHA"
+          --title "ProcScope $VERSION"
+          --generate-notes
+          --latest

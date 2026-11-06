@@ -1,0 +1,58 @@
+# Build output (OutDir / IntDir in the .vcxproj files), including the test harness
+bin/
+obj/
+
+# Any per-project build folders Visual Studio may create
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+Win32/
+ARM64/
+
+# Visual Studio user state and caches
+.vs/
+*.user
+*.suo
+*.vcxproj.user
+*.aps
+*.ncb
+*.sdf
+*.opensdf
+*.VC.db
+*.VC.opendb
+ipch/
+enc_temp_folder/
+
+# Compiler / linker intermediates
+*.obj
+*.pch
+*.pdb
+*.ipdb
+*.iobj
+*.idb
+*.ilk
+*.res
+*.tlog
+*.lastbuildstate
+*.log
+*.exp
+*.lib
+*.manifest
+# ...except this one, which is source: it stops Windows reporting wrong file versions.
+!ProcScope/compatibility.manifest
+
+# Files saved from ProcScope
+*.report.txt
+processes.csv
+
+# Debugging / profiling artifacts
+*.dmp
+*.vspx
+*.diagsession
+
+# OS / editor noise
+Thumbs.db
+Desktop.ini
+.DS_Store
+.vscode/

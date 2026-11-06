@@ -1,0 +1,128 @@
+// ProcScope resource script
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+#ifndef APSTUDIO_INVOKED
+#include "targetver.h"
+#endif
+#include "afxres.h"
+#include "verrsrc.h"
+#undef APSTUDIO_READONLY_SYMBOLS
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+
+/////////////////////////////////////////////////////////////////////////////
+// Icon
+
+IDR_MAINFRAME           ICON                    "res\\ProcScope.ico"
+
+/////////////////////////////////////////////////////////////////////////////
+// Menus
+
+IDR_MAINMENU MENU
+BEGIN
+    POPUP "&File"
+    BEGIN
+        MENUITEM "&Save Process List as CSV...", ID_FILE_SAVELIST
+        MENUITEM SEPARATOR
+        MENUITEM "E&xit",                       ID_FILE_EXIT
+    END
+    POPUP "&View"
+    BEGIN
+        MENUITEM "&Refresh Now\tF5",            ID_VIEW_REFRESH
+        MENUITEM SEPARATOR
+        POPUP "&Update Speed"
+        BEGIN
+            MENUITEM "&High (0.5 s)",           ID_SPEED_HIGH
+            MENUITEM "&Normal (1 s)",           ID_SPEED_NORMAL
+            MENUITEM "&Low (2 s)",              ID_SPEED_LOW
+            MENUITEM "&Very low (5 s)",         ID_SPEED_VERYLOW
+        END
+    END
+    POPUP "&Help"
+    BEGIN
+        MENUITEM "&About ProcScope...",         ID_HELP_ABOUT
+    END
+END
+
+/////////////////////////////////////////////////////////////////////////////
+// Accelerators
+
+IDR_ACCELERATORS ACCELERATORS
+BEGIN
+    VK_F5,          ID_VIEW_REFRESH,            VIRTKEY, NOINVERT
+END
+
+/////////////////////////////////////////////////////////////////////////////
+// Dialogs
+
+IDD_ABOUTBOX DIALOGEX 0, 0, 260, 92
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "About ProcScope"
+FONT 9, "Segoe UI", 400, 0, 0x0
+BEGIN
+    ICON            IDR_MAINFRAME,IDC_STATIC,14,14,20,20
+    LTEXT           "ProcScope - Process Monitor, Version 1.0",IDC_STATIC,46,14,200,10,SS_NOPREFIX
+    LTEXT           "Shows running processes live, with the modules each has loaded, its threads, and its full dependency chain.\nIt only reads: it never changes or ends a process.",IDC_STATIC,46,28,206,38
+    DEFPUSHBUTTON   "OK",IDOK,203,71,50,14,WS_GROUP
+END
+
+IDD_PROCSCOPE_DIALOG DIALOGEX 0, 0, 640, 420
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_CLIPCHILDREN
+EXSTYLE WS_EX_APPWINDOW
+CAPTION "ProcScope - Process Monitor"
+MENU IDR_MAINMENU
+FONT 9, "Segoe UI", 400, 0, 0x0
+BEGIN
+END
+
+/////////////////////////////////////////////////////////////////////////////
+// Version
+
+// The numbers come from ProcScopeVersion in ProcScope.vcxproj.
+#define PROCSCOPE_TEXT2(x) #x
+#define PROCSCOPE_TEXT(x) PROCSCOPE_TEXT2(x)
+#define PROCSCOPE_VERSION_TEXT PROCSCOPE_TEXT(PROCSCOPE_MAJOR) "." PROCSCOPE_TEXT(PROCSCOPE_MINOR) "." PROCSCOPE_TEXT(PROCSCOPE_PATCH) ".0"
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION PROCSCOPE_MAJOR,PROCSCOPE_MINOR,PROCSCOPE_PATCH,0
+ PRODUCTVERSION PROCSCOPE_MAJOR,PROCSCOPE_MINOR,PROCSCOPE_PATCH,0
+ FILEFLAGSMASK VS_FFI_FILEFLAGSMASK
+#ifdef _DEBUG
+ FILEFLAGS VS_FF_DEBUG
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS VOS_NT_WINDOWS32
+ FILETYPE VFT_APP
+ FILESUBTYPE VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "FileDescription", "ProcScope - Process Monitor"
+            VALUE "FileVersion", PROCSCOPE_VERSION_TEXT
+            VALUE "InternalName", "ProcScope.exe"
+            VALUE "OriginalFilename", "ProcScope.exe"
+            VALUE "ProductName", "ProcScope"
+            VALUE "ProductVersion", PROCSCOPE_VERSION_TEXT
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END
+
+/////////////////////////////////////////////////////////////////////////////
+// MFC framework resources (static link)
+
+#include "afxres.rc"
+#if !defined(_AFXDLL)
+#include "afxribbon.rc"
+#endif
+
+#endif    // English (United States)
